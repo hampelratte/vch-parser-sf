@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <artifactId>parser.sf</artifactId>
     <packaging>bundle</packaging>
-    <version>2.0.1</version>
+    <version>2.0.2-SNAPSHOT</version>
     <name>VCH SF Parser</name>
     <description>Parser for the SF Videoportal</description>
 
