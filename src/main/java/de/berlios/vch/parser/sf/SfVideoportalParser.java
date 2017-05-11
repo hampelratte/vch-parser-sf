@@ -1,6 +1,7 @@
 package de.berlios.vch.parser.sf;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -56,7 +57,6 @@ public class SfVideoportalParser implements IWebParser {
         for (int i = 0; i < sections.size(); i++) {
             Element section = sections.get(i);
             Element h3 = section.getElementsByTag("h3").first();
-            logger.log(LogService.LOG_DEBUG, h3.text() + " " + h3.attributes().toString());
             if (!"tv".equals(h3.attr("class"))) {
                 // this is not a video feed -> ignore
                 continue;
@@ -66,8 +66,6 @@ public class SfVideoportalParser implements IWebParser {
             OverviewPage programPage = new OverviewPage();
             programPage.setParser(ID);
             programPage.setTitle(title);
-
-            logger.log(LogService.LOG_DEBUG, "Trying to parse " + title);
 
             // try HD first
             Elements feed = section.getElementsByAttributeValue("name", "hd-feed");
@@ -81,21 +79,25 @@ public class SfVideoportalParser implements IWebParser {
                 continue;
             }
 
-            String uri = feed.first().attr("value");
-            programPage.setUri(new URI(uri));
+            String uri = feed.first().attr("value").trim();
+            try {
+                programPage.setUri(new URI(uri));
 
-            String firstCharacter = title.substring(0, 1).toUpperCase();
-            firstCharacter = firstCharacter.replaceAll("[0-9]", "0-9");
-            IOverviewPage sectionPage = AbisZ.get(firstCharacter);
-            if (sectionPage == null) {
-                sectionPage = new OverviewPage();
-                sectionPage.setParser(ID);
-                sectionPage.setTitle(firstCharacter);
-                sectionPage.setUri(new URI("sf://section/" + Base64.encode(title)));
-                AbisZ.put(firstCharacter, sectionPage);
-                page.getPages().add(sectionPage);
+                String firstCharacter = title.substring(0, 1).toUpperCase();
+                firstCharacter = firstCharacter.replaceAll("[0-9]", "0-9");
+                IOverviewPage sectionPage = AbisZ.get(firstCharacter);
+                if (sectionPage == null) {
+                    sectionPage = new OverviewPage();
+                    sectionPage.setParser(ID);
+                    sectionPage.setTitle(firstCharacter);
+                    sectionPage.setUri(new URI("sf://section/" + Base64.encode(title)));
+                    AbisZ.put(firstCharacter, sectionPage);
+                    page.getPages().add(sectionPage);
+                }
+                sectionPage.getPages().add(programPage);
+            } catch(URISyntaxException e) {
+                logger.log(LogService.LOG_WARNING, "Couldn't parse feed at [" + uri + "]", e);
             }
-            sectionPage.getPages().add(programPage);
         }
         return page;
     }
