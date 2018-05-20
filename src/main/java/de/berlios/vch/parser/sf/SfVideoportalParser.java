@@ -20,6 +20,7 @@ import com.sun.syndication.feed.synd.SyndEntry;
 import com.sun.syndication.feed.synd.SyndFeed;
 import com.sun.syndication.io.impl.Base64;
 
+import de.berlios.vch.http.client.HttpResponse;
 import de.berlios.vch.http.client.HttpUtils;
 import de.berlios.vch.parser.HtmlParserUtils;
 import de.berlios.vch.parser.IOverviewPage;
@@ -37,7 +38,7 @@ public class SfVideoportalParser implements IWebParser {
 
     public static final String ID = SfVideoportalParser.class.getName();
 
-    private final String BASE_URI = "http://www.srf.ch";
+    private final String BASE_URI = "https://www.srf.ch";
     private final String START_PAGE = BASE_URI + "/podcasts";
 
     @Requires
@@ -68,18 +69,23 @@ public class SfVideoportalParser implements IWebParser {
             programPage.setTitle(title);
 
             // try HD first
-            Elements feed = section.getElementsByAttributeValue("name", "hd-feed");
-            if (feed.isEmpty()) {
+            String uri = "";
+            Elements feed = section.getElementsByAttribute("data-url-hd");
+            if(!feed.isEmpty()) {
+                uri = feed.first().attr("data-url-hd").trim();
+            } else {
+                logger.log(LogService.LOG_DEBUG, "HD not found for " + programPage.getTitle());
                 // fall back to SD
-                feed = section.getElementsByAttributeValue("name", "aac-feed");
+                feed = section.getElementsByAttribute("data-url-sd");
+                if(!feed.isEmpty()) {
+                    uri = feed.first().attr("data-url-sd").trim();
+                } else {
+                    logger.log(LogService.LOG_DEBUG, "SD not found for " + programPage.getTitle());
+                    // still no feed found -> ignore
+                    continue;
+                }
             }
 
-            if (feed.isEmpty()) {
-                // still no feed found -> ignore
-                continue;
-            }
-
-            String uri = feed.first().attr("value").trim();
             try {
                 programPage.setUri(new URI(uri));
 
@@ -116,7 +122,12 @@ public class SfVideoportalParser implements IWebParser {
                 logger.log(LogService.LOG_DEBUG, "Parsing program page at " + page.getUri());
                 IOverviewPage programPage = (IOverviewPage) page;
 
-                String rssContent = HttpUtils.get(page.getUri().toString(), null, CHARSET);
+                HttpResponse response = HttpUtils.getResponse(page.getUri().toString(), null, CHARSET);
+                while(response.getHeader().containsKey("Location")) {
+                    response = HttpUtils.getResponse(response.getHeader().get("Location").get(0), null, CHARSET);
+                }
+                System.out.println(response.getHeader());
+                String rssContent = response.getContent();
                 SyndFeed feed = RssParser.parse(rssContent);
                 for (Iterator<?> iterator = feed.getEntries().iterator(); iterator.hasNext();) {
                     SyndEntry entry = (SyndEntry) iterator.next();
